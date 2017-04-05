@@ -1,6 +1,15 @@
 
 const traverse = require('traverse');
+const prettier = require('prettier');
 const strEscape = require('js-string-escape');
+
+const prettierConfig = {
+  printWidth: 128,
+};
+
+function genFaker(key, value) {
+  return key === '0' ? 'first' : key;
+}
 
 function json2faker(obj) {
   const code = [];
@@ -10,11 +19,10 @@ function json2faker(obj) {
       // process only the first item in array.
       if (Array.isArray(this.parent && this.parent.node) && this.key !== '0') {
         this.update(null, true);
-        return;
       }
-      if (Array.isArray(node)) {
-        this.before(() => code.push('['));
-        this.after(() => code.push(']'));
+      else if (Array.isArray(node)) {
+        this.before(() => code.push(`Array(${node.length}).fill().map( (unused, idx)=>(`));
+        this.after(() => code.push('))'));
       }
       else if (typeof node === 'object') {
         this.before(() => code.push('{'));
@@ -29,6 +37,9 @@ function json2faker(obj) {
         });
         this.after(() => code.push('}'));
       }
+      else if (this.isLeaf) {
+        code.push(`faker.${genFaker(this.key, node)}()`);
+      }
       else if (typeof node === 'string') {
         code.push('"');
         code.push(strEscape(node.toString()));
@@ -37,11 +48,10 @@ function json2faker(obj) {
       else {
         code.push(node.toString());
       }
-      return;
     }
   );
 
-  return code.join('');
+  return prettier.format(code.join(''), prettierConfig);
 }
 
 module.exports = json2faker;
